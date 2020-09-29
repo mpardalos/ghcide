@@ -72,6 +72,9 @@ experiments =
       bench "hover" 10 $ \doc ->
         isJust <$> getHover doc identifierP,
       ---------------------------------------------------------------------------------------
+      bench "quick hover" 1 $ \doc ->
+        isJust <$> getHover doc identifierP,
+      ---------------------------------------------------------------------------------------
       bench "edit" 10 $ \doc -> do
         changeDoc doc [hygienicEdit]
         waitForProgressDone
