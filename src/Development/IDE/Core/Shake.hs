@@ -128,6 +128,8 @@ import UniqSupply
 import PrelInfo
 import Data.Int (Int64)
 import qualified Data.HashSet as HSet
+import OpenTelemetry.Eventlog (withSpan_, observe, mkUpDownSumObserver, UpDownSumObserver, ValueObserver)
+import HeapSize (recursiveSizeNoGC, recursiveSize)
 
 -- information we stash inside the shakeExtra field
 data ShakeExtras = ShakeExtras
@@ -350,13 +352,17 @@ profileStartTime = unsafePerformIO $ formatTime defaultTimeLocale "%Y%m%d-%H%M%S
 profileCounter :: Var Int
 profileCounter = unsafePerformIO $ newVar 0
 
+stateBytesInstrument :: UpDownSumObserver
+stateBytesInstrument = unsafePerformIO $ mkUpDownSumObserver "state map size_bytes"
+
 setValues :: IdeRule k v
           => Var Values
           -> k
           -> NormalizedFilePath
           -> Value v
           -> IO ()
-setValues state key file val = modifyVar_ state $ \vals -> do
+setValues state key file val = withSpan_ "setValues" $ modifyVar_ state $ \vals -> do
+    observe stateBytesInstrument =<< recursiveSizeNoGC val
     -- Force to make sure the old HashMap is not retained
     evaluate $ HMap.insert (file, Key key) (fmap toDyn val) vals
 
