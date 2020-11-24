@@ -143,7 +143,15 @@ main = do
         let logLevel = if argsVerbose then minBound else Info
             dummyWithProg _ _ f = f (const (pure ()))
         sessionLoader <- loadSession dir
-        ide <- initialise def mainRule (pure $ IdInt 0) (showEvent lock) dummyWithProg (const (const id)) (logger logLevel) debouncer (defaultIdeOptions sessionLoader)  vfs
+	
+        let options = (defaultIdeOptions sessionLoader)
+                    { optShakeProfiling    = argsShakeProfiling
+                    , optOTMemoryProfiling = IdeOTMemoryProfiling argsOTMemoryProfiling
+                    , optTesting           = IdeTesting argsTesting
+                    , optThreads           = argsThreads
+                    }
+            logLevel = if argsVerbose then minBound else Info
+        ide <- initialise def mainRule (pure $ IdInt 0) (showEvent lock) dummyWithProg (const (const id)) (logger logLevel) debouncer options vfs
 
         putStrLn "\nStep 4/4: Type checking the files"
         setFilesOfInterest ide $ HashMap.fromList $ map ((, OnDisk) . toNormalizedFilePath') files
@@ -154,6 +162,11 @@ main = do
 
         let files xs = let n = length xs in if n == 1 then "1 file" else show n ++ " files"
         putStrLn $ "\nCompleted (" ++ files worked ++ " worked, " ++ files failed ++ " failed)"
+
+        putStrLn "Ctrl+C to exit..."
+
+	forever $ threadDelay 10000000000
+
         unless (null failed) (exitWith $ ExitFailure (length failed))
 
 expandFiles :: [FilePath] -> IO [FilePath]
